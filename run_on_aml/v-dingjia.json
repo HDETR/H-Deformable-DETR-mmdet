@@ -1,0 +1,39 @@
+{
+    "container_registry_address": "ocrfrontend.azurecr.io",
+    "container_registry_username": "ocrfrontend",
+    "container_registry_password": "cKET8jP7VyePPZFegSQI2a7E7DMY=XBp",
+    "docker_image": "pytorch16:cuda10.1",
+    "datastore_name": "luoxiao_storage",
+    "blob_container_name": "openseg-aml",
+    "blob_account_name": "openseg",
+    "blob_account_key": "9fhoDNYPRFs8zc53B13GDqvEVynmOEe+RchBP8p5d6EWsU04LVfjs3+Q4ab7r2Pq9EXqylgYH28gVmLDk95hqQ==",
+    "SAS": "?sp=rawl&st=2021-11-29T04:29:07Z&se=2022-11-29T12:29:07Z&sv=2020-08-04&sr=c&sig=wPVeuOIVqHt3cgd6EnOsNnQPmgm%2BHwvlwOgG%2BRw1j9k%3D",
+    "blob_output_root": "jiading/outputs-aml/DecoderAug-mmdetection-6-15",
+    "workspaces": {
+        "vision-itp-ocr-res-ws01-westus2": {
+            "subscription_id": "48b6cd5e-3ffe-4c2e-9e99-5760a42cd093",
+            "resource_group": "vision-itp-ocr"
+        },
+        "vision-itp-ocr-res-ws01-scus": {
+            "subscription_id": "48b6cd5e-3ffe-4c2e-9e99-5760a42cd093",
+            "resource_group": "vision-itp-ocr"
+        },
+        "resrchvc": {
+            "subscription_id": "46da6261-2167-4e71-8b0d-f4a45215ce61",
+            "resource_group": "researchvc"
+        },
+        "resrchvc-sc": {
+            "subscription_id": "46da6261-2167-4e71-8b0d-f4a45215ce61",
+            "resource_group": "researchvc-sc"
+        },
+        "resrchvc-sea": {
+            "subscription_id": "46da6261-2167-4e71-8b0d-f4a45215ce61",
+            "resource_group": "researchvc-sea"
+        },
+        "resrchvc-eus": {
+            "subscription_id": "46da6261-2167-4e71-8b0d-f4a45215ce61",
+            "resource_group": "researchvc-eus"
+        }
+    },
+    "experiment_group_name": "maskformer_workspace"
+}

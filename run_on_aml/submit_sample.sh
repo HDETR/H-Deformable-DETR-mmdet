@@ -1,0 +1,1 @@
+python run_on_aml/aml_submit.py --config_file configs/ade20k-150-panoptic/maskformer_panoptic_R50_bs16_720k.yaml --dataset_names ADEChallengeData2016 --target itplabrr1cl1 --node_nums 1 --azureml_config_file run_on_aml/v-dingjia.json --sleep_for_debug -1 --experiment_name maskformer_conditionalDETR-original
