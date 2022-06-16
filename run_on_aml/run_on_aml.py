@@ -42,11 +42,9 @@ def build_repo(args):
     print(cmd)
     os.system(cmd)
 
-    sh_path = os.path.join(args.working_dir, "models", "ops")
-
-    cmd = f"sudo sh make.sh"
+    cmd = f"pip install -v -e ."
     print(cmd)
-    sp.run(cmd, shell=True, cwd=sh_path, check=True)
+    sp.run(cmd, shell=True, check=True, cwd=args.working_dir)
 
 
 def prepare_datasets(args):
@@ -115,15 +113,15 @@ def install_apps():
     print(cmd)
     os.system(cmd)
 
-    cmd = "pip install mmcv-full -f https://download.openmmlab.com/mmcv/dist/cu102/torch1.10.0/index.html"
+    """cmd = "pip install mmcv-full -f https://download.openmmlab.com/mmcv/dist/cu102/torch1.10.0/index.html"
     print(cmd)
-    os.system(cmd)
+    os.system(cmd)"""
 
     cmd = "pip install openmim"
     print(cmd)
     os.system(cmd)
 
-    cmd = "mim install mmdet"
+    cmd = "mim install mmcv-full"
     print(cmd)
     os.system(cmd)
 

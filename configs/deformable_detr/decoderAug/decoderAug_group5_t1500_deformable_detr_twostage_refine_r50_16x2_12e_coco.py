@@ -22,7 +22,7 @@ model = dict(
         num_outs=4,
     ),
     bbox_head=dict(
-        type="DeformableDETRDecoderAugHead",
+        type="DecoderAugDeformableDETRHead",
         num_query=1800,
         num_classes=80,
         in_channels=2048,

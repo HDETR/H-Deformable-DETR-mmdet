@@ -14,7 +14,7 @@ from .detr_head import DETRHead
 
 
 @HEADS.register_module()
-class DeformableDETRDecoderAugHead(DETRHead):
+class DecoderAugDeformableDETRHead(DETRHead):
     """Head of DeformDETR: Deformable DETR: Deformable Transformers for End-to-
     End Object Detection.
 
@@ -50,7 +50,7 @@ class DeformableDETRDecoderAugHead(DETRHead):
         if self.as_two_stage:
             transformer["as_two_stage"] = self.as_two_stage
 
-        super(DeformableDETRDecoderAugHead, self).__init__(
+        super(DecoderAugDeformableDETRHead, self).__init__(
             *args, transformer=transformer, **kwargs
         )
 
