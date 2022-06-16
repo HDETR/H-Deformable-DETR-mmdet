@@ -145,6 +145,14 @@ class DecoderAugDeformableDETRHead(DETRHead):
             mlvl_positional_encodings.append(self.positional_encoding(mlvl_masks[-1]))
 
         query_embeds = None
+
+        # attn mask
+        self_attn_mask = (
+            torch.zeros([self.num_query, self.num_query,]).bool().to(feat.device)
+        )
+        self_attn_mask[self.num_ori_query :, 0 : self.num_ori_query] = True
+        self_attn_mask[0 : self.num_ori_query, self.num_ori_query :] = True
+
         if not self.as_two_stage:
             query_embeds = self.query_embedding.weight
         (
@@ -162,6 +170,7 @@ class DecoderAugDeformableDETRHead(DETRHead):
             if self.with_box_refine
             else None,  # noqa:E501
             cls_branches=self.cls_branches if self.as_two_stage else None,  # noqa:E501
+            decoder_self_attn_mask=[self_attn_mask, None],
         )
         hs = hs.permute(0, 2, 1, 3)
         outputs_classes = []
