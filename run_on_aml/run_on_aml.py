@@ -243,11 +243,22 @@ def main():
 
         build_repo(args)
         prepare_datasets(args)
-        if "checkpoint.pth" in os.listdir(args.output_path):
+
+        RESUME_FROM_CHECKPOINT = False
+        latest_epoch = 0
+        for file_name in os.listdir(args.output_path):
+            if "epoch_" in file_name:
+                RESUME_FROM_CHECKPOINT = True
+                this_epoch = int(file_name[6:].split(".")[0])
+                if this_epoch > latest_epoch:
+                    latest_epoch = this_epoch
+
+        if RESUME_FROM_CHECKPOINT:
+            epoch_name = "epoch_" + str(latest_epoch) + ".pth"
             cmd = (
                 f"bash ./tools/dist_train.sh  "
                 f"{args.config_file} 8 "
-                f"--work-dir {args.output_path} --resume-from {args.output_path}/checkpoint.pth 2>&1 |tee {args.output_path}/azure_log.txt"
+                f"--work-dir {args.output_path} --resume-from {args.output_path}/{epoch_name} 2>&1 |tee {args.output_path}/azure_log.txt"
             )
         else:
             cmd = (
