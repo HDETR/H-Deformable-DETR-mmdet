@@ -352,6 +352,8 @@ class DecoderAugDeformableDETRHead(DETRHead):
         self,
         all_cls_scores,
         all_bbox_preds,
+        multi_cls_scores,
+        multi_bbox_preds,
         enc_cls_scores,
         enc_bbox_preds,
         img_metas,
