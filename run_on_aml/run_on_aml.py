@@ -48,7 +48,16 @@ def build_repo(args):
 
 
 def prepare_datasets(args):
+    import os
+
     dataset_path = os.path.join(args.working_dir, "data")
+    if os.path.isdir(dataset_path):
+        cmd = f"rm -r {dataset_path}"
+        print(cmd)
+        os.system(cmd)
+    cmd = f"mkdir {dataset_path}"
+    print(cmd)
+    os.system(cmd)
     dataset_names = args.dataset_names.split(",")
     azcopy_dataset_names = ["ADEChallengeData2016", "coco", "cityscapes"]
     for dataset_name in dataset_names:

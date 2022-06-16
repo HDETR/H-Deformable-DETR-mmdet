@@ -8,7 +8,7 @@
     "blob_account_name": "openseg",
     "blob_account_key": "9fhoDNYPRFs8zc53B13GDqvEVynmOEe+RchBP8p5d6EWsU04LVfjs3+Q4ab7r2Pq9EXqylgYH28gVmLDk95hqQ==",
     "SAS": "?sp=rawl&st=2021-11-29T04:29:07Z&se=2022-11-29T12:29:07Z&sv=2020-08-04&sr=c&sig=wPVeuOIVqHt3cgd6EnOsNnQPmgm%2BHwvlwOgG%2BRw1j9k%3D",
-    "blob_output_root": "jiading/outputs-aml/DecoderAug-mmdetection-6-15",
+    "blob_output_root": "jiading/outputs-aml/DecoderAug-mmdetection-v2-6-15",
     "workspaces": {
         "vision-itp-ocr-res-ws01-westus2": {
             "subscription_id": "48b6cd5e-3ffe-4c2e-9e99-5760a42cd093",
