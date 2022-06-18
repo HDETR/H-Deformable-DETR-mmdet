@@ -41,7 +41,7 @@ from .yolact_head import YOLACTHead, YOLACTProtonet, YOLACTSegmHead
 from .yolo_head import YOLOV3Head
 from .yolof_head import YOLOFHead
 from .yolox_head import YOLOXHead
-from .aug_decoder_deformable_detr_head import DecoderAugDeformableDETRHead
+from .decoder_aug_deformable_detr_head import DecoderAugDeformableDETRHead
 
 __all__ = [
     "AnchorFreeHead",

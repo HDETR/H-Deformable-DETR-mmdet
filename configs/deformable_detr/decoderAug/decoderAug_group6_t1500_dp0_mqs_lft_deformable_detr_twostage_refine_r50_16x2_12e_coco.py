@@ -29,11 +29,14 @@ model = dict(
         in_channels=2048,
         sync_cls_avg_factor=True,
         num_ori_query=300,
-        gt_repeat=5,
+        gt_repeat=6,
         with_box_refine=True,
-        as_two_stage=False,
+        as_two_stage=True,
+        mixed_selection=True,
         transformer=dict(
             type="DeformableDetrTransformer",
+            two_stage_num_proposals=1800,
+            mixed_selection=True,
             encoder=dict(
                 type="DetrTransformerEncoder",
                 num_layers=6,
@@ -43,7 +46,7 @@ model = dict(
                         type="MultiScaleDeformableAttention", embed_dims=256
                     ),
                     feedforward_channels=1024,
-                    ffn_dropout=0.1,
+                    ffn_dropout=0.0,
                     operation_order=("self_attn", "norm", "ffn", "norm"),
                 ),
             ),
@@ -51,6 +54,7 @@ model = dict(
                 type="DeformableDetrTransformerDecoder",
                 num_layers=6,
                 return_intermediate=True,
+                look_forward_twice=True,
                 transformerlayers=dict(
                     type="DetrTransformerDecoderLayer",
                     attn_cfgs=[
@@ -58,12 +62,12 @@ model = dict(
                             type="MultiheadAttention",
                             embed_dims=256,
                             num_heads=8,
-                            dropout=0.1,
+                            dropout=0.0,
                         ),
                         dict(type="MultiScaleDeformableAttention", embed_dims=256),
                     ],
                     feedforward_channels=1024,
-                    ffn_dropout=0.1,
+                    ffn_dropout=0.0,
                     operation_order=(
                         "self_attn",
                         "norm",

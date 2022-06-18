@@ -40,6 +40,7 @@ class DecoderAugDeformableDETRHead(DETRHead):
         gt_repeat=5,
         with_box_refine=False,
         as_two_stage=False,
+        mixed_selection=False,
         transformer=None,
         **kwargs,
     ):
@@ -47,6 +48,7 @@ class DecoderAugDeformableDETRHead(DETRHead):
         self.as_two_stage = as_two_stage
         self.num_ori_query = num_ori_query
         self.gt_repeat = gt_repeat
+        self.mixed_selection = mixed_selection
         if self.as_two_stage:
             transformer["as_two_stage"] = self.as_two_stage
 
@@ -86,6 +88,8 @@ class DecoderAugDeformableDETRHead(DETRHead):
 
         if not self.as_two_stage:
             self.query_embedding = nn.Embedding(self.num_query, self.embed_dims * 2)
+        elif self.mixed_selection:
+            self.query_embedding = nn.Embedding(self.num_query, self.embed_dims)
 
     def init_weights(self):
         """Initialize weights of the DeformDETR head."""
@@ -153,7 +157,7 @@ class DecoderAugDeformableDETRHead(DETRHead):
         self_attn_mask[self.num_ori_query :, 0 : self.num_ori_query] = True
         self_attn_mask[0 : self.num_ori_query, self.num_ori_query :] = True
 
-        if not self.as_two_stage:
+        if not self.as_two_stage or self.mixed_selection:
             query_embeds = self.query_embedding.weight
         (
             hs,
