@@ -14,7 +14,7 @@ from .detr_head import DETRHead
 
 
 @HEADS.register_module()
-class DecoderAugDeformableDETRHead(DETRHead):
+class HybridBranchDeformableDETRHead(DETRHead):
     """Head of DeformDETR: Deformable DETR: Deformable Transformers for End-to-
     End Object Detection.
 

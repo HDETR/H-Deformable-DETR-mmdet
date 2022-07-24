@@ -1,23 +1,21 @@
 _base_ = ["../../_base_/datasets/coco_detection.py", "../../_base_/default_runtime.py"]
+checkpoint_config = dict(create_symlink=False)
 model = dict(
     type="DeformableDETR",
     backbone=dict(
-        type="SwinTransformer",
-        embed_dims=128,
-        depths=[2, 2, 18, 2],
-        num_heads=[4, 8, 16, 32],
-        window_size=7,
-        drop_path_rate=0.3,
-        patch_norm=True,
+        type="ResNet",
+        depth=50,
+        num_stages=4,
         out_indices=(1, 2, 3),
-        init_cfg=dict(
-            type="Pretrained",
-            checkpoint="/openseg_blob_new/jiading/pretrained_backbone/swin_base_patch4_window7_224.pth",
-        ),
+        frozen_stages=1,
+        norm_cfg=dict(type="BN", requires_grad=False),
+        norm_eval=True,
+        style="pytorch",
+        init_cfg=dict(type="Pretrained", checkpoint="torchvision://resnet50"),
     ),
     neck=dict(
         type="ChannelMapper",
-        in_channels=[256, 512, 1024],
+        in_channels=[512, 1024, 2048],
         kernel_size=1,
         out_channels=256,
         act_cfg=None,
@@ -25,15 +23,20 @@ model = dict(
         num_outs=4,
     ),
     bbox_head=dict(
-        type="DeformableDETRHead",
-        num_query=300,
+        type="HybridBranchDeformableDETRHead",
+        num_query=1800,
         num_classes=80,
         in_channels=2048,
         sync_cls_avg_factor=True,
+        num_ori_query=300,
+        gt_repeat=6,
         with_box_refine=True,
         as_two_stage=True,
+        mixed_selection=True,
         transformer=dict(
             type="DeformableDetrTransformer",
+            two_stage_num_proposals=1800,
+            mixed_selection=True,
             encoder=dict(
                 type="DetrTransformerEncoder",
                 num_layers=6,
@@ -43,7 +46,7 @@ model = dict(
                         type="MultiScaleDeformableAttention", embed_dims=256
                     ),
                     feedforward_channels=2048,
-                    ffn_dropout=0.1,
+                    ffn_dropout=0.0,
                     operation_order=("self_attn", "norm", "ffn", "norm"),
                 ),
             ),
@@ -51,6 +54,7 @@ model = dict(
                 type="DeformableDetrTransformerDecoder",
                 num_layers=6,
                 return_intermediate=True,
+                look_forward_twice=True,
                 transformerlayers=dict(
                     type="DetrTransformerDecoderLayer",
                     attn_cfgs=[
@@ -58,12 +62,12 @@ model = dict(
                             type="MultiheadAttention",
                             embed_dims=256,
                             num_heads=8,
-                            dropout=0.1,
+                            dropout=0.0,
                         ),
                         dict(type="MultiScaleDeformableAttention", embed_dims=256),
                     ],
                     feedforward_channels=2048,
-                    ffn_dropout=0.1,
+                    ffn_dropout=0.0,
                     operation_order=(
                         "self_attn",
                         "norm",
@@ -217,4 +221,3 @@ runner = dict(type="EpochBasedRunner", max_epochs=12)
 # USER SHOULD NOT CHANGE ITS VALUES.
 # base_batch_size = (16 GPUs) x (2 samples per GPU)
 auto_scale_lr = dict(base_batch_size=32)
-checkpoint_config = dict(create_symlink=False)

@@ -23,7 +23,7 @@ model = dict(
         num_outs=4,
     ),
     bbox_head=dict(
-        type="NMSDecoderAugDeformableDETRHead",
+        type="HybridBranchDeformableDETRHead",
         num_query=1800,
         num_classes=80,
         in_channels=2048,
@@ -32,11 +32,9 @@ model = dict(
         gt_repeat=6,
         with_box_refine=True,
         as_two_stage=True,
-        mixed_selection=True,
         transformer=dict(
             type="DeformableDetrTransformer",
             two_stage_num_proposals=1800,
-            mixed_selection=True,
             encoder=dict(
                 type="DetrTransformerEncoder",
                 num_layers=6,
@@ -46,7 +44,7 @@ model = dict(
                         type="MultiScaleDeformableAttention", embed_dims=256
                     ),
                     feedforward_channels=2048,
-                    ffn_dropout=0.0,
+                    ffn_dropout=0.1,
                     operation_order=("self_attn", "norm", "ffn", "norm"),
                 ),
             ),
@@ -54,7 +52,6 @@ model = dict(
                 type="DeformableDetrTransformerDecoder",
                 num_layers=6,
                 return_intermediate=True,
-                look_forward_twice=True,
                 transformerlayers=dict(
                     type="DetrTransformerDecoderLayer",
                     attn_cfgs=[
@@ -62,12 +59,12 @@ model = dict(
                             type="MultiheadAttention",
                             embed_dims=256,
                             num_heads=8,
-                            dropout=0.0,
+                            dropout=0.1,
                         ),
                         dict(type="MultiScaleDeformableAttention", embed_dims=256),
                     ],
                     feedforward_channels=2048,
-                    ffn_dropout=0.0,
+                    ffn_dropout=0.1,
                     operation_order=(
                         "self_attn",
                         "norm",

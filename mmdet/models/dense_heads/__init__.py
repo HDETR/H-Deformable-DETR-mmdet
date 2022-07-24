@@ -41,11 +41,7 @@ from .yolact_head import YOLACTHead, YOLACTProtonet, YOLACTSegmHead
 from .yolo_head import YOLOV3Head
 from .yolof_head import YOLOFHead
 from .yolox_head import YOLOXHead
-from .decoder_aug_deformable_detr_head import DecoderAugDeformableDETRHead
-from .nms_decoder_aug_deformable_detr_head import NMSDecoderAugDeformableDETRHead
-from .reverse_decoder_aug_deformable_detr_head import (
-    ReverseDecoderAugDeformableDETRHead,
-)
+from .hybrid_branch_deformable_detr_head import HybridBranchDeformableDETRHead
 
 __all__ = [
     "AnchorFreeHead",
@@ -97,7 +93,5 @@ __all__ = [
     "Mask2FormerHead",
     "SOLOV2Head",
     "DDODHead",
-    "DecoderAugDeformableDETRHead",
-    "ReverseDecoderAugDeformableDETRHead",
-    "NMSDecoderAugDeformableDETRHead",
+    "HybridBranchDeformableDETRHead",
 ]
