@@ -7,14 +7,14 @@ import torch.nn.functional as F
 from mmcv.cnn import Linear, bias_init_with_prob, constant_init
 from mmcv.runner import force_fp32
 
-from mmdet.core import multi_apply
+from mmdet.core import multi_apply, bbox_cxcywh_to_xyxy
 from mmdet.models.utils.transformer import inverse_sigmoid
 from ..builder import HEADS
 from .detr_head import DETRHead
 
 
 @HEADS.register_module()
-class DeformableDETRHead(DETRHead):
+class NMSDecoderAugDeformableDETRHead(DETRHead):
     """Head of DeformDETR: Deformable DETR: Deformable Transformers for End-to-
     End Object Detection.
 
@@ -36,6 +36,8 @@ class DeformableDETRHead(DETRHead):
     def __init__(
         self,
         *args,
+        num_ori_query=300,
+        gt_repeat=5,
         with_box_refine=False,
         as_two_stage=False,
         mixed_selection=False,
@@ -44,11 +46,13 @@ class DeformableDETRHead(DETRHead):
     ):
         self.with_box_refine = with_box_refine
         self.as_two_stage = as_two_stage
+        self.num_ori_query = num_ori_query
+        self.gt_repeat = gt_repeat
         self.mixed_selection = mixed_selection
         if self.as_two_stage:
             transformer["as_two_stage"] = self.as_two_stage
 
-        super(DeformableDETRHead, self).__init__(
+        super(NMSDecoderAugDeformableDETRHead, self).__init__(
             *args, transformer=transformer, **kwargs
         )
 
@@ -145,6 +149,14 @@ class DeformableDETRHead(DETRHead):
             mlvl_positional_encodings.append(self.positional_encoding(mlvl_masks[-1]))
 
         query_embeds = None
+
+        # attn mask
+        self_attn_mask = (
+            torch.zeros([self.num_query, self.num_query,]).bool().to(feat.device)
+        )
+        self_attn_mask[self.num_ori_query :, 0 : self.num_ori_query] = True
+        self_attn_mask[0 : self.num_ori_query, self.num_ori_query :] = True
+
         if not self.as_two_stage or self.mixed_selection:
             query_embeds = self.query_embedding.weight
         (
@@ -162,6 +174,7 @@ class DeformableDETRHead(DETRHead):
             if self.with_box_refine
             else None,  # noqa:E501
             cls_branches=self.cls_branches if self.as_two_stage else None,  # noqa:E501
+            decoder_self_attn_mask=[self_attn_mask, None],
         )
         hs = hs.permute(0, 2, 1, 3)
         outputs_classes = []
@@ -186,21 +199,38 @@ class DeformableDETRHead(DETRHead):
 
         outputs_classes = torch.stack(outputs_classes)
         outputs_coords = torch.stack(outputs_coords)
+
+        outputs_classes_ori = outputs_classes[:, :, 0 : self.num_ori_query, :]
+        outputs_coords_ori = outputs_coords[:, :, 0 : self.num_ori_query, :]
+        outputs_classes_multi = outputs_classes[:, :, self.num_ori_query :, :]
+        outputs_coords_multi = outputs_coords[:, :, self.num_ori_query :, :]
+
         if self.as_two_stage:
             return (
-                outputs_classes,
-                outputs_coords,
+                outputs_classes_ori,
+                outputs_coords_ori,
+                outputs_classes_multi,
+                outputs_coords_multi,
                 enc_outputs_class,
                 enc_outputs_coord.sigmoid(),
             )
         else:
-            return outputs_classes, outputs_coords, None, None
+            return (
+                outputs_classes_ori,
+                outputs_coords_ori,
+                outputs_classes_multi,
+                outputs_coords_multi,
+                None,
+                None,
+            )
 
     @force_fp32(apply_to=("all_cls_scores_list", "all_bbox_preds_list"))
     def loss(
         self,
         all_cls_scores,
         all_bbox_preds,
+        multi_cls_scores,
+        multi_bbox_preds,
         enc_cls_scores,
         enc_bbox_preds,
         gt_bboxes_list,
@@ -242,11 +272,28 @@ class DeformableDETRHead(DETRHead):
         )
 
         num_dec_layers = len(all_cls_scores)
+        # for ori
         all_gt_bboxes_list = [gt_bboxes_list for _ in range(num_dec_layers)]
         all_gt_labels_list = [gt_labels_list for _ in range(num_dec_layers)]
-        all_gt_bboxes_ignore_list = [gt_bboxes_ignore for _ in range(num_dec_layers)]
+        all_gt_bboxes_ignore_list = [
+            gt_bboxes_ignore for _ in range(num_dec_layers)
+        ]  # gt_bboxes_ignore is none
         img_metas_list = [img_metas for _ in range(num_dec_layers)]
 
+        # for multi
+        multi_gt_bboxes_list = []
+        multi_gt_labels_list = []
+        for gt_bboxes in gt_bboxes_list:
+            multi_gt_bboxes_list.append(gt_bboxes.repeat(self.gt_repeat, 1))
+
+        for gt_labels in gt_labels_list:
+            multi_gt_labels_list.append(gt_labels.repeat(self.gt_repeat))
+
+        all_multi_gt_bboxes_list = [multi_gt_bboxes_list for _ in range(num_dec_layers)]
+        all_multi_gt_labels_list = [multi_gt_labels_list for _ in range(num_dec_layers)]
+        all_multi_gt_bboxes_ignore_list = all_gt_bboxes_ignore_list
+
+        # ori losses
         losses_cls, losses_bbox, losses_iou = multi_apply(
             self.loss_single,
             all_cls_scores,
@@ -255,6 +302,17 @@ class DeformableDETRHead(DETRHead):
             all_gt_labels_list,
             img_metas_list,
             all_gt_bboxes_ignore_list,
+        )
+
+        # multi losses
+        losses_cls_multi, losses_bbox_multi, losses_iou_multi = multi_apply(
+            self.loss_single,
+            multi_cls_scores,
+            multi_bbox_preds,
+            all_multi_gt_bboxes_list,
+            all_multi_gt_labels_list,
+            img_metas_list,
+            all_multi_gt_bboxes_ignore_list,
         )
 
         loss_dict = dict()
@@ -276,17 +334,29 @@ class DeformableDETRHead(DETRHead):
             loss_dict["enc_loss_iou"] = enc_losses_iou
 
         # loss from the last decoder layer
-        loss_dict["loss_cls"] = losses_cls[-1]
-        loss_dict["loss_bbox"] = losses_bbox[-1]
-        loss_dict["loss_iou"] = losses_iou[-1]
+        loss_dict["loss_cls"] = losses_cls[-1] + losses_cls_multi[-1]
+        loss_dict["loss_bbox"] = losses_bbox[-1] + losses_bbox_multi[-1]
+        loss_dict["loss_iou"] = losses_iou[-1] + losses_iou_multi[-1]
         # loss from other decoder layers
         num_dec_layer = 0
-        for loss_cls_i, loss_bbox_i, loss_iou_i in zip(
-            losses_cls[:-1], losses_bbox[:-1], losses_iou[:-1]
+        for (
+            loss_cls_i,
+            loss_bbox_i,
+            loss_iou_i,
+            loss_cls_i_multi,
+            loss_bbox_i_multi,
+            loss_iou_i_multi,
+        ) in zip(
+            losses_cls[:-1],
+            losses_bbox[:-1],
+            losses_iou[:-1],
+            losses_cls_multi[:-1],
+            losses_bbox_multi[:-1],
+            losses_iou_multi[:-1],
         ):
-            loss_dict[f"d{num_dec_layer}.loss_cls"] = loss_cls_i
-            loss_dict[f"d{num_dec_layer}.loss_bbox"] = loss_bbox_i
-            loss_dict[f"d{num_dec_layer}.loss_iou"] = loss_iou_i
+            loss_dict[f"d{num_dec_layer}.loss_cls"] = loss_cls_i + loss_cls_i_multi
+            loss_dict[f"d{num_dec_layer}.loss_bbox"] = loss_bbox_i + loss_bbox_i_multi
+            loss_dict[f"d{num_dec_layer}.loss_iou"] = loss_iou_i + loss_iou_i_multi
             num_dec_layer += 1
         return loss_dict
 
@@ -295,6 +365,8 @@ class DeformableDETRHead(DETRHead):
         self,
         all_cls_scores,
         all_bbox_preds,
+        multi_cls_scores,
+        multi_bbox_preds,
         enc_cls_scores,
         enc_bbox_preds,
         img_metas,
@@ -343,3 +415,87 @@ class DeformableDETRHead(DETRHead):
             )
             result_list.append(proposals)
         return result_list
+
+    def _get_bboxes_single(
+        self, cls_score, bbox_pred, img_shape, scale_factor, rescale=False
+    ):
+        """Transform outputs from the last decoder layer into bbox predictions
+        for each image.
+
+        Args:
+            cls_score (Tensor): Box score logits from the last decoder layer
+                for each image. Shape [num_query, cls_out_channels].
+            bbox_pred (Tensor): Sigmoid outputs from the last decoder layer
+                for each image, with coordinate format (cx, cy, w, h) and
+                shape [num_query, 4].
+            img_shape (tuple[int]): Shape of input image, (height, width, 3).
+            scale_factor (ndarray, optional): Scale factor of the image arange
+                as (w_scale, h_scale, w_scale, h_scale).
+            rescale (bool, optional): If True, return boxes in original image
+                space. Default False.
+
+        Returns:
+            tuple[Tensor]: Results of detected bboxes and labels.
+
+                - det_bboxes: Predicted bboxes with shape [num_query, 5], \
+                    where the first 4 columns are bounding box positions \
+                    (tl_x, tl_y, br_x, br_y) and the 5-th column are scores \
+                    between 0 and 1.
+                - det_labels: Predicted labels of the corresponding box with \
+                    shape [num_query].
+        """
+        assert len(cls_score) == len(bbox_pred)
+        # max_per_img = self.test_cfg.get("max_per_img", self.num_query)
+        # pre_nms
+        max_per_img = 7000
+        # exclude background
+        if self.loss_cls.use_sigmoid:
+            cls_score = cls_score.sigmoid()
+            scores, indexes = cls_score.view(-1).topk(max_per_img)
+            det_labels = indexes % self.num_classes
+            bbox_index = indexes // self.num_classes
+            bbox_pred = bbox_pred[bbox_index]
+        else:
+            scores, det_labels = F.softmax(cls_score, dim=-1)[..., :-1].max(-1)
+            scores, bbox_index = scores.topk(max_per_img)
+            bbox_pred = bbox_pred[bbox_index]
+            det_labels = det_labels[bbox_index]
+
+        det_bboxes = bbox_cxcywh_to_xyxy(bbox_pred)
+        # nms here
+        out_bbox = det_bboxes.unsqueeze(dim=0)
+        prob_cls = scores.unsqueeze(dim=0)
+        labels = det_labels.unsqueeze(dim=0)
+        from torchvision.ops import batched_nms
+
+        # from mmcv.ops.nms import batched_nms
+
+        # treat each cls as a batch, further acceleration can be implemented
+        batch_keep = []
+        for (bbox_, score_, bbox_idx) in zip(out_bbox, prob_cls, labels):
+            keep_ = batched_nms(bbox_, score_, bbox_idx, iou_threshold=0.7)
+            """_, keep_ = batched_nms(
+                bbox_, score_, bbox_idx, nms_cfg=dict(iou_threshold=0.7)
+            )"""
+            assert (
+                len(keep_) >= 100
+            ), "only {} left after nms with iou thresh={}".format(len(keep_), 0.5)
+            batch_keep.append(keep_[:100].view(1, 100))
+        topk_indexes = torch.cat(batch_keep, dim=0)  # (bs, 100)
+
+        det_labels = torch.gather(labels, 1, topk_indexes).squeeze(dim=0)
+        scores = torch.gather(prob_cls, 1, topk_indexes).squeeze(dim=0)
+        det_bboxes = torch.gather(
+            out_bbox, 1, topk_indexes.unsqueeze(-1).repeat(1, 1, 4)
+        ).squeeze(dim=0)
+        # end of nms
+
+        det_bboxes[:, 0::2] = det_bboxes[:, 0::2] * img_shape[1]
+        det_bboxes[:, 1::2] = det_bboxes[:, 1::2] * img_shape[0]
+        det_bboxes[:, 0::2].clamp_(min=0, max=img_shape[1])
+        det_bboxes[:, 1::2].clamp_(min=0, max=img_shape[0])
+        if rescale:
+            det_bboxes /= det_bboxes.new_tensor(scale_factor)
+        det_bboxes = torch.cat((det_bboxes, scores.unsqueeze(1)), -1)
+
+        return det_bboxes, det_labels

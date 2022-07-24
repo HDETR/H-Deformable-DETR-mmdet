@@ -42,6 +42,10 @@ from .yolo_head import YOLOV3Head
 from .yolof_head import YOLOFHead
 from .yolox_head import YOLOXHead
 from .decoder_aug_deformable_detr_head import DecoderAugDeformableDETRHead
+from .nms_decoder_aug_deformable_detr_head import NMSDecoderAugDeformableDETRHead
+from .reverse_decoder_aug_deformable_detr_head import (
+    ReverseDecoderAugDeformableDETRHead,
+)
 
 __all__ = [
     "AnchorFreeHead",
@@ -94,4 +98,6 @@ __all__ = [
     "SOLOV2Head",
     "DDODHead",
     "DecoderAugDeformableDETRHead",
+    "ReverseDecoderAugDeformableDETRHead",
+    "NMSDecoderAugDeformableDETRHead",
 ]
