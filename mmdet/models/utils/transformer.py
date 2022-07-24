@@ -1068,12 +1068,8 @@ class DeformableDetrTransformer(Transformer):
                 self.pos_trans(self.get_proposal_pos_embed(topk_coords_unact))
             )
             if not self.mixed_selection:
-                # query_embed, tgt = torch.split(pos_trans_out, c, dim=2)
                 query_pos, query = torch.split(pos_trans_out, c, dim=2)
             else:
-                # query_embed is content embed for deformable DETR
-                # tgt = query_embed.unsqueeze(0).expand(bs, -1, -1)
-                # query_embed, _ = torch.split(pos_trans_out, c, dim=2)
                 query = query_embed.unsqueeze(0).expand(bs, -1, -1)
                 query_pos, _ = torch.split(pos_trans_out, c, dim=2)
         else:

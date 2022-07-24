@@ -36,23 +36,23 @@ class HybridBranchDeformableDETRHead(DETRHead):
     def __init__(
         self,
         *args,
-        num_ori_query=300,
-        gt_repeat=5,
+        num_query_one2one=300,
+        k_one2many=5,
         with_box_refine=False,
         as_two_stage=False,
         mixed_selection=False,
         transformer=None,
         **kwargs,
     ):
+        self.num_query_one2one = num_query_one2one
+        self.k_one2many = k_one2many
         self.with_box_refine = with_box_refine
         self.as_two_stage = as_two_stage
-        self.num_ori_query = num_ori_query
-        self.gt_repeat = gt_repeat
         self.mixed_selection = mixed_selection
         if self.as_two_stage:
             transformer["as_two_stage"] = self.as_two_stage
 
-        super(DecoderAugDeformableDETRHead, self).__init__(
+        super(HybridBranchDeformableDETRHead, self).__init__(
             *args, transformer=transformer, **kwargs
         )
 
@@ -115,10 +115,16 @@ class HybridBranchDeformableDETRHead(DETRHead):
             img_metas (list[dict]): List of image information.
 
         Returns:
-            all_cls_scores (Tensor): Outputs from the classification head, \
+            one2one_cls_scores (Tensor): One-to-one branch outputs from the classification head, \
                 shape [nb_dec, bs, num_query, cls_out_channels]. Note \
                 cls_out_channels should includes background.
-            all_bbox_preds (Tensor): Sigmoid outputs from the regression \
+            one2one_bbox_preds (Tensor): One-to-one branch sigmoid outputs from the regression \
+                head with normalized coordinate format (cx, cy, w, h). \
+                Shape [nb_dec, bs, num_query, 4].
+            one2many_cls_scores (Tensor): One-to-many branch outputs from the classification head, \
+                shape [nb_dec, bs, num_query, cls_out_channels]. Note \
+                cls_out_channels should includes background.
+            one2many_bbox_preds (Tensor): One-to-many branch sigmoid outputs from the regression \
                 head with normalized coordinate format (cx, cy, w, h). \
                 Shape [nb_dec, bs, num_query, 4].
             enc_outputs_class (Tensor): The score of each point on encode \
@@ -154,8 +160,8 @@ class HybridBranchDeformableDETRHead(DETRHead):
         self_attn_mask = (
             torch.zeros([self.num_query, self.num_query,]).bool().to(feat.device)
         )
-        self_attn_mask[self.num_ori_query :, 0 : self.num_ori_query] = True
-        self_attn_mask[0 : self.num_ori_query, self.num_ori_query :] = True
+        self_attn_mask[self.num_query_one2one :, 0 : self.num_query_one2one] = True
+        self_attn_mask[0 : self.num_query_one2one, self.num_query_one2one :] = True
 
         if not self.as_two_stage or self.mixed_selection:
             query_embeds = self.query_embedding.weight
@@ -200,37 +206,44 @@ class HybridBranchDeformableDETRHead(DETRHead):
         outputs_classes = torch.stack(outputs_classes)
         outputs_coords = torch.stack(outputs_coords)
 
-        outputs_classes_ori = outputs_classes[:, :, 0 : self.num_ori_query, :]
-        outputs_coords_ori = outputs_coords[:, :, 0 : self.num_ori_query, :]
-        outputs_classes_multi = outputs_classes[:, :, self.num_ori_query :, :]
-        outputs_coords_multi = outputs_coords[:, :, self.num_ori_query :, :]
+        outputs_classes_one2one = outputs_classes[:, :, 0 : self.num_query_one2one, :]
+        outputs_coords_one2one = outputs_coords[:, :, 0 : self.num_query_one2one, :]
+        outputs_classes_one2many = outputs_classes[:, :, self.num_query_one2one :, :]
+        outputs_coords_one2many = outputs_coords[:, :, self.num_query_one2one :, :]
 
         if self.as_two_stage:
             return (
-                outputs_classes_ori,
-                outputs_coords_ori,
-                outputs_classes_multi,
-                outputs_coords_multi,
+                outputs_classes_one2one,
+                outputs_coords_one2one,
+                outputs_classes_one2many,
+                outputs_coords_one2many,
                 enc_outputs_class,
                 enc_outputs_coord.sigmoid(),
             )
         else:
             return (
-                outputs_classes_ori,
-                outputs_coords_ori,
-                outputs_classes_multi,
-                outputs_coords_multi,
+                outputs_classes_one2one,
+                outputs_coords_one2one,
+                outputs_classes_one2many,
+                outputs_coords_one2many,
                 None,
                 None,
             )
 
-    @force_fp32(apply_to=("all_cls_scores_list", "all_bbox_preds_list"))
+    @force_fp32(
+        apply_to=(
+            "one2one_cls_scores_list",
+            "one2one_bbox_preds_list",
+            "one2many_cls_scores_list",
+            "one2many_bbox_preds_list",
+        )
+    )
     def loss(
         self,
-        all_cls_scores,
-        all_bbox_preds,
-        multi_cls_scores,
-        multi_bbox_preds,
+        one2one_cls_scores,
+        one2one_bbox_preds,
+        one2many_cls_scores,
+        one2many_bbox_preds,
         enc_cls_scores,
         enc_bbox_preds,
         gt_bboxes_list,
@@ -241,10 +254,17 @@ class HybridBranchDeformableDETRHead(DETRHead):
         """"Loss function.
 
         Args:
-            all_cls_scores (Tensor): Classification score of all
+            one2one_cls_scores (Tensor): One-to-one branch classification score of all
                 decoder layers, has shape
                 [nb_dec, bs, num_query, cls_out_channels].
-            all_bbox_preds (Tensor): Sigmoid regression
+            one2one_bbox_preds (Tensor): One-to-one branch sigmoid regression
+                outputs of all decode layers. Each is a 4D-tensor with
+                normalized coordinate format (cx, cy, w, h) and shape
+                [nb_dec, bs, num_query, 4].
+            one2many_cls_scores (Tensor): One-to-many branch classification score of all
+                decoder layers, has shape
+                [nb_dec, bs, num_query, cls_out_channels].
+            one2many_bbox_preds (Tensor): One-to-many branch sigmoid regression
                 outputs of all decode layers. Each is a 4D-tensor with
                 normalized coordinate format (cx, cy, w, h) and shape
                 [nb_dec, bs, num_query, 4].
@@ -271,50 +291,55 @@ class HybridBranchDeformableDETRHead(DETRHead):
             f"for gt_bboxes_ignore setting to None."
         )
 
-        num_dec_layers = len(all_cls_scores)
-        # for ori
-        all_gt_bboxes_list = [gt_bboxes_list for _ in range(num_dec_layers)]
-        all_gt_labels_list = [gt_labels_list for _ in range(num_dec_layers)]
-        all_gt_bboxes_ignore_list = [
-            gt_bboxes_ignore for _ in range(num_dec_layers)
-        ]  # gt_bboxes_ignore is none
+        num_dec_layers = len(one2one_cls_scores)
         img_metas_list = [img_metas for _ in range(num_dec_layers)]
 
-        # for multi
-        multi_gt_bboxes_list = []
-        multi_gt_labels_list = []
-        for gt_bboxes in gt_bboxes_list:
-            multi_gt_bboxes_list.append(gt_bboxes.repeat(self.gt_repeat, 1))
-
-        for gt_labels in gt_labels_list:
-            multi_gt_labels_list.append(gt_labels.repeat(self.gt_repeat))
-
-        all_multi_gt_bboxes_list = [multi_gt_bboxes_list for _ in range(num_dec_layers)]
-        all_multi_gt_labels_list = [multi_gt_labels_list for _ in range(num_dec_layers)]
-        all_multi_gt_bboxes_ignore_list = all_gt_bboxes_ignore_list
-
-        # ori losses
+        # for one2one branch
+        one2one_gt_bboxes_list = [gt_bboxes_list for _ in range(num_dec_layers)]
+        one2one_gt_labels_list = [gt_labels_list for _ in range(num_dec_layers)]
+        one2one_gt_bboxes_ignore_list = [
+            gt_bboxes_ignore for _ in range(num_dec_layers)
+        ]
+        # one2one losses
         losses_cls, losses_bbox, losses_iou = multi_apply(
             self.loss_single,
-            all_cls_scores,
-            all_bbox_preds,
-            all_gt_bboxes_list,
-            all_gt_labels_list,
+            one2one_cls_scores,
+            one2one_bbox_preds,
+            one2one_gt_bboxes_list,
+            one2one_gt_labels_list,
             img_metas_list,
-            all_gt_bboxes_ignore_list,
+            one2one_gt_bboxes_ignore_list,
         )
 
-        # multi losses
-        losses_cls_multi, losses_bbox_multi, losses_iou_multi = multi_apply(
+        # for one2many branch
+        one2many_gt_bboxes_list = []
+        one2many_gt_labels_list = []
+        for gt_bboxes in gt_bboxes_list:
+            one2many_gt_bboxes_list.append(gt_bboxes.repeat(self.k_one2many, 1))
+
+        for gt_labels in gt_labels_list:
+            one2many_gt_labels_list.append(gt_labels.repeat(self.k_one2many))
+
+        one2many_gt_bboxes_list = [
+            one2many_gt_bboxes_list for _ in range(num_dec_layers)
+        ]
+        one2many_gt_labels_list = [
+            one2many_gt_labels_list for _ in range(num_dec_layers)
+        ]
+        one2many_gt_bboxes_ignore_list = one2one_gt_bboxes_ignore_list
+
+        # one2many losses
+        losses_cls_one2many, losses_bbox_one2many, losses_iou_one2many = multi_apply(
             self.loss_single,
-            multi_cls_scores,
-            multi_bbox_preds,
-            all_multi_gt_bboxes_list,
-            all_multi_gt_labels_list,
+            one2many_cls_scores,
+            one2many_bbox_preds,
+            one2many_gt_bboxes_list,
+            one2many_gt_labels_list,
             img_metas_list,
-            all_multi_gt_bboxes_ignore_list,
+            one2many_gt_bboxes_ignore_list,
         )
 
+        # sum up losses for two branches
         loss_dict = dict()
         # loss of proposal generated from encode feature map.
         if enc_cls_scores is not None:
@@ -334,39 +359,48 @@ class HybridBranchDeformableDETRHead(DETRHead):
             loss_dict["enc_loss_iou"] = enc_losses_iou
 
         # loss from the last decoder layer
-        loss_dict["loss_cls"] = losses_cls[-1] + losses_cls_multi[-1]
-        loss_dict["loss_bbox"] = losses_bbox[-1] + losses_bbox_multi[-1]
-        loss_dict["loss_iou"] = losses_iou[-1] + losses_iou_multi[-1]
+        loss_dict["loss_cls"] = losses_cls[-1] + losses_cls_one2many[-1]
+        loss_dict["loss_bbox"] = losses_bbox[-1] + losses_bbox_one2many[-1]
+        loss_dict["loss_iou"] = losses_iou[-1] + losses_iou_one2many[-1]
         # loss from other decoder layers
         num_dec_layer = 0
         for (
             loss_cls_i,
             loss_bbox_i,
             loss_iou_i,
-            loss_cls_i_multi,
-            loss_bbox_i_multi,
-            loss_iou_i_multi,
+            loss_cls_i_one2many,
+            loss_bbox_i_one2many,
+            loss_iou_i_one2many,
         ) in zip(
             losses_cls[:-1],
             losses_bbox[:-1],
             losses_iou[:-1],
-            losses_cls_multi[:-1],
-            losses_bbox_multi[:-1],
-            losses_iou_multi[:-1],
+            losses_cls_one2many[:-1],
+            losses_bbox_one2many[:-1],
+            losses_iou_one2many[:-1],
         ):
-            loss_dict[f"d{num_dec_layer}.loss_cls"] = loss_cls_i + loss_cls_i_multi
-            loss_dict[f"d{num_dec_layer}.loss_bbox"] = loss_bbox_i + loss_bbox_i_multi
-            loss_dict[f"d{num_dec_layer}.loss_iou"] = loss_iou_i + loss_iou_i_multi
+            loss_dict[f"d{num_dec_layer}.loss_cls"] = loss_cls_i + loss_cls_i_one2many
+            loss_dict[f"d{num_dec_layer}.loss_bbox"] = (
+                loss_bbox_i + loss_bbox_i_one2many
+            )
+            loss_dict[f"d{num_dec_layer}.loss_iou"] = loss_iou_i + loss_iou_i_one2many
             num_dec_layer += 1
         return loss_dict
 
-    @force_fp32(apply_to=("all_cls_scores_list", "all_bbox_preds_list"))
+    @force_fp32(
+        apply_to=(
+            "one2one_cls_scores_list",
+            "one2one_bbox_preds_list",
+            "one2many_cls_scores_list",
+            "one2many_bbox_preds_list",
+        )
+    )
     def get_bboxes(
         self,
-        all_cls_scores,
-        all_bbox_preds,
-        multi_cls_scores,
-        multi_bbox_preds,
+        one2one_cls_scores,
+        one2one_bbox_preds,
+        one2many_cls_scores,
+        one2many_bbox_preds,
         enc_cls_scores,
         enc_bbox_preds,
         img_metas,
@@ -375,10 +409,17 @@ class HybridBranchDeformableDETRHead(DETRHead):
         """Transform network outputs for a batch into bbox predictions.
 
         Args:
-            all_cls_scores (Tensor): Classification score of all
+            one2one_cls_scores (Tensor): One2one branch classification score of all
                 decoder layers, has shape
                 [nb_dec, bs, num_query, cls_out_channels].
-            all_bbox_preds (Tensor): Sigmoid regression
+            one2one_bbox_preds (Tensor): One2one branch sigmoid regression
+                outputs of all decode layers. Each is a 4D-tensor with
+                normalized coordinate format (cx, cy, w, h) and shape
+                [nb_dec, bs, num_query, 4].
+            one2one_cls_scores (Tensor): One2many branch classification score of all
+                decoder layers, has shape
+                [nb_dec, bs, num_query, cls_out_channels].
+            one2one_bbox_preds (Tensor): One2many branch sigmoid regression
                 outputs of all decode layers. Each is a 4D-tensor with
                 normalized coordinate format (cx, cy, w, h) and shape
                 [nb_dec, bs, num_query, 4].
@@ -401,8 +442,8 @@ class HybridBranchDeformableDETRHead(DETRHead):
                 (n,) tensor where each item is the predicted class label of \
                 the corresponding box.
         """
-        cls_scores = all_cls_scores[-1]
-        bbox_preds = all_bbox_preds[-1]
+        cls_scores = one2one_cls_scores[-1]
+        bbox_preds = one2one_bbox_preds[-1]
 
         result_list = []
         for img_id in range(len(img_metas)):
