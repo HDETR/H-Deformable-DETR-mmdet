@@ -4,8 +4,8 @@ This is the official implementation of the paper "[DETRs with Hybrid Matching](h
 
 Authors: Ding Jia, Yuhui Yuan, Haodi He, Xiaopei Wu, Haojun Yu, Weihong Lin, Lei Sun, Chao Zhang, Han Hu
 
-## Citing H-Deformable-DETR
-If you find H-Deformable-DETR useful in your research, please consider citing:
+## Citing H-Deformable-DETR for MMDet
+If you find H-Deformable-DETR for MMDet useful in your research, please consider citing:
 ```bibtex
 @article{jia2022detrs,
   title={DETRs with Hybrid Matching},
@@ -164,7 +164,7 @@ pip install -e .
 
 Please download [COCO 2017](https://cocodataset.org/) dataset and organize them as following:
 ```
-mmdetection
+H-Deformable-DETR-mmdet
 ├── data
 │   ├── coco
 │   │   ├── train2017
@@ -193,7 +193,7 @@ GPUS_PER_NODE=8 tools/dist_test.sh \
     8 --eval bbox
 ```
 
-## Modified files compared to vanilla Deformable DETR
+## Modified files compared to original MMDet
 
 * configs/deformable_detr: add baseline configs
 * configs/h-deformable-detr: add h-deformable-detr configs
