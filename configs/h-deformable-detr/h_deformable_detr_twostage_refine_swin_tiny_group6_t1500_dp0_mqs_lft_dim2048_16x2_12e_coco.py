@@ -1,4 +1,4 @@
-_base_ = ["../../_base_/datasets/coco_detection.py", "../../_base_/default_runtime.py"]
+_base_ = ["../_base_/datasets/coco_detection.py", "../_base_/default_runtime.py"]
 checkpoint_config = dict(create_symlink=False)
 model = dict(
     type="DeformableDETR",
