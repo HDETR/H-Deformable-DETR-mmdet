@@ -171,18 +171,18 @@ mmdetection
 │   │   ├── val2017
 │   │   └── annotations
 |   |        ├── instances_train2017.json
-|  	|        └── instances_val2017.json
+|   |        └── instances_val2017.json
 ```
 ## Run
 ### To train a model using 8 cards
 
 ```Bash
 GPUS_PER_NODE=8  ./tools/dist_train.sh \
-    <config path>
+    <config path> \
     8
 ```
 
-To train/eval a model with the swin transformer backbone, you need to download the backbone from the [offical repo](https://github.com/microsoft/Swin-Transformer#main-results-on-imagenet-with-pretrained-models) frist and specify argument`checkpoint` like [our configs](./configs/h-deformable-detr/h_deformable_detr_twostage_refine_swin_tiny_group6_t1500_dp0_mqs_lft_dim2048_16x2_12e_coco.py).
+To train/eval a model with the swin transformer backbone, you need to download the backbone from the [offical repo](https://github.com/microsoft/Swin-Transformer#main-results-on-imagenet-with-pretrained-models) frist and specify argument`checkpoint` like [our config](./configs/h-deformable-detr/h_deformable_detr_twostage_refine_swin_tiny_group6_t1500_dp0_mqs_lft_dim2048_16x2_12e_coco.py).
 
 ### To eval a model using 8 cards
 
