@@ -16,19 +16,21 @@ from .positional_encoding import (LearnedPositionalEncoding,
                                   SinePositionalEncoding)
 from .res_layer import ResLayer, SimplifiedBasicBlock
 from .se_layer import DyReLU, SELayer
-from .transformer import (DetrTransformerDecoder, DetrTransformerDecoderLayer,
-                          DynamicConv, PatchEmbed, Transformer, nchw_to_nlc,
-                          nlc_to_nchw)
+
+
+# from .transformer import (DetrTransformerDecoder, DetrTransformerDecoderLayer,
+#                           DynamicConv, PatchEmbed, Transformer, nchw_to_nlc,
+#                           nlc_to_nchw)
 
 __all__ = [
     'ResLayer', 'gaussian_radius', 'gen_gaussian_target',
-    'DetrTransformerDecoderLayer', 'DetrTransformerDecoder', 'Transformer',
     'build_transformer', 'build_linear_layer', 'SinePositionalEncoding',
-    'LearnedPositionalEncoding', 'DynamicConv', 'SimplifiedBasicBlock',
+    'LearnedPositionalEncoding', 'SimplifiedBasicBlock',
     'NormedLinear', 'NormedConv2d', 'make_divisible', 'InvertedResidual',
     'SELayer', 'interpolate_as', 'ConvUpsample', 'CSPLayer',
-    'adaptive_avg_pool2d', 'AdaptiveAvgPool2d', 'PatchEmbed', 'nchw_to_nlc',
-    'nlc_to_nchw', 'pvt_convert', 'sigmoid_geometric_mean',
+    'adaptive_avg_pool2d', 'AdaptiveAvgPool2d',  
+    'pvt_convert', 'sigmoid_geometric_mean',
     'preprocess_panoptic_gt', 'DyReLU',
-    'get_uncertain_point_coords_with_randomness', 'get_uncertainty'
+    'get_uncertain_point_coords_with_randomness', 'get_uncertainty',
+    # 'DetrTransformerDecoderLayer', 'DetrTransformerDecoder', 'Transformer', 'DynamicConv', 'PatchEmbed', 'nchw_to_nlc', 'nlc_to_nchw'
 ]

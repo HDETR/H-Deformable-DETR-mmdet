@@ -15,11 +15,11 @@ from mmdet.core import (
     reduce_mean,
 )
 from mmdet.models.utils import build_transformer
-from ..builder import HEADS, build_loss
+from mmdet.models.builder import build_loss
 from .anchor_free_head import AnchorFreeHead
 
 
-@HEADS.register_module()
+# @HEADS.register_module()
 class DETRHead(AnchorFreeHead):
     """Implements the DETR transformer head.
 

@@ -8,7 +8,7 @@ from .centernet_head import CenterNetHead
 from .centripetal_head import CentripetalHead
 from .corner_head import CornerHead
 from .ddod_head import DDODHead
-from .deformable_detr_head import DeformableDETRHead
+# from .deformable_detr_head import DeformableDETRHead
 from .detr_head import DETRHead
 from .embedding_rpn_head import EmbeddingRPNHead
 from .fcos_head import FCOSHead
@@ -41,7 +41,6 @@ from .yolact_head import YOLACTHead, YOLACTProtonet, YOLACTSegmHead
 from .yolo_head import YOLOV3Head
 from .yolof_head import YOLOFHead
 from .yolox_head import YOLOXHead
-from .hybrid_branch_deformable_detr_head import HybridBranchDeformableDETRHead
 
 __all__ = [
     "AnchorFreeHead",
@@ -81,7 +80,7 @@ __all__ = [
     "AutoAssignHead",
     "DETRHead",
     "YOLOFHead",
-    "DeformableDETRHead",
+    # "DeformableDETRHead",
     "SOLOHead",
     "DecoupledSOLOHead",
     "CenterNetHead",
@@ -93,5 +92,5 @@ __all__ = [
     "Mask2FormerHead",
     "SOLOV2Head",
     "DDODHead",
-    "HybridBranchDeformableDETRHead",
+    # "HybridBranchDeformableDETRHead"
 ]
