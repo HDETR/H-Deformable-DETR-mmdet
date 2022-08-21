@@ -1,0 +1,11 @@
+{
+    "project_name": "decoder_aug",
+    "storage_account_name": "openseg",
+    "container_name": "amulet",
+    "blob_storage_account_name": "openseg",
+    "registry_name": "projects",
+    "local_path": "/work/Deformable-DETR/amlt",
+    "default_output_dir": "/work/Deformable-DETR/amlt/amlt",
+    "project_uuid": "7342989935.50512-2a7e2871-b9d0-442b-ae93-4dc41ef57dcd",
+    "version": "9.7.0"
+}
