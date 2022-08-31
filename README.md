@@ -89,7 +89,7 @@ Notice that to align with the offical implement of [Deformable DETR](https://git
 <th valign="bottom">AP</th>
 <th valign="bottom">download</th>
 <!-- TABLE BODY -->
-<tr><td align="left"><a href="configs/deformable_detr/deformable_detr_twostage_refine_swin_tiny_dim2048_16x2_12e_coco.py">Deformable-DETR</a></td>
+<tr><td align="left"><a href="Projects/configs_plugin/checkpoint_deformable_detr/deformable_detr_twostage_refine_swin_tiny_dim2048_16x2_12e_coco.py">Deformable-DETR</a></td>
 <td align="center">Swin Tiny</td>
 <td align="center">300</td>
 <td align="center">12</td>
