@@ -7,6 +7,8 @@ Authors: Ding Jia, Yuhui Yuan, Haodi He, Xiaopei Wu, Haojun Yu, Weihong Lin, Lei
 
 ## Model ZOO
 
+**🍺🍺🍺Please checkout the branch [mmdetection-with-plug-in](https://github.com/HDETR/H-Deformable-DETR-mmdet/tree/mmdetection-with-plug-in) for more clean orgnizations.📣📣📣**
+
 We provide a set of baseline results and trained models available for download:
 
 ### Models with the ResNet-50 backbone
