@@ -21,7 +21,7 @@ from mmcv.cnn.bricks.transformer import (
 from mmcv.runner.base_module import BaseModule
 from mmcv.utils import to_2tuple
 from torch.nn.init import normal_
-from Projects.checkpointing_plugin.models.utils.deformable_transformer import (
+from projects.checkpointing_plugin.models.utils.deformable_transformer import (
     build_transformer_decoder,
     build_transformer_encoder,
 )

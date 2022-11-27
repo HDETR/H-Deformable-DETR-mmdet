@@ -16,7 +16,7 @@ from mmcv.utils import to_2tuple
 from ...utils import get_root_logger
 from ..builder import BACKBONES
 from ..utils.ckpt_convert import swin_converter
-from Projects.hdetr_plugin.models.utils.transformer import PatchEmbed, PatchMerging
+from projects.hdetr_plugin.models.utils.transformer import PatchEmbed, PatchMerging
 
 
 class WindowMSA(BaseModule):

@@ -17,7 +17,7 @@ from torch.nn.modules.utils import _pair as to_2tuple
 
 from ...utils import get_root_logger
 from ..builder import BACKBONES
-from Projects.hdetr_plugin.models.utils.transformer import PatchEmbed, nchw_to_nlc, nlc_to_nchw
+from projects.hdetr_plugin.models.utils.transformer import PatchEmbed, nchw_to_nlc, nlc_to_nchw
 from ..utils import pvt_convert
 
 
