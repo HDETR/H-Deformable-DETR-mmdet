@@ -478,6 +478,8 @@ class DETRHead(AnchorFreeHead):
                 )
             cls_scores = torch.cat([cls_scores, one2many_cls_scores], dim=1)
             bbox_preds = torch.cat([bbox_preds, one2many_bbox_preds], dim=1)
+            num_total_pos += num_total_pos_one2many
+            num_total_neg += num_total_neg_one2many
 
         labels = torch.cat(labels_list, 0)
         label_weights = torch.cat(label_weights_list, 0)

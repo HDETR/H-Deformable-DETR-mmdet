@@ -341,6 +341,10 @@ class HybridBranchDeformableDETRHead(DETRHead):
             one2many_gt_bboxes_ignore_list,
         )
 
+        # losses_cls:about 2.2 for every layer
+        # losses_bbox:about 2.2 for every layer
+        # losses_iou:about 1.6 for every layer
+
         # sum up losses for two branches
         loss_dict = dict()
         # loss of proposal generated from encode feature map.
