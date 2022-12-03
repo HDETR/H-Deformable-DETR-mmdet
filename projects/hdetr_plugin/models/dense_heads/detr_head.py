@@ -63,9 +63,8 @@ class DETRHead(AnchorFreeHead):
         transformer=None,
         sync_cls_avg_factor=False,
         positional_encoding=dict(
-            type="SinePositionalEncoding", 
-            num_feats=128, 
-            normalize=True),
+            type="SinePositionalEncoding", num_feats=128, normalize=True
+        ),
         loss_cls=dict(
             type="CrossEntropyLoss",
             bg_cls_weight=0.1,
@@ -254,7 +253,7 @@ class DETRHead(AnchorFreeHead):
         return multi_apply(self.forward_single, feats, img_metas_list)
 
     def forward_single(self, x, img_metas):
-        """"Forward function for a single feature level.
+        """ "Forward function for a single feature level.
 
         Args:
             x (Tensor): Input feature from backbone's single stage, shape
@@ -305,7 +304,7 @@ class DETRHead(AnchorFreeHead):
         img_metas,
         gt_bboxes_ignore=None,
     ):
-        """"Loss function.
+        """ "Loss function.
 
         Only outputs from the last feature level are used for computing
         losses by default.
@@ -376,8 +375,13 @@ class DETRHead(AnchorFreeHead):
         gt_labels_list,
         img_metas,
         gt_bboxes_ignore_list=None,
+        one2many_cls_scores=None,
+        one2many_bbox_preds=None,
+        one2many_gt_bboxes_list=None,
+        one2many_gt_labels_list=None,
+        one2many_gt_bboxes_ignore_list=None,
     ):
-        """"Loss function for outputs from a single decoder layer of a single
+        """ "Loss function for outputs from a single decoder layer of a single
         feature level.
 
         Args:
@@ -398,9 +402,21 @@ class DETRHead(AnchorFreeHead):
             dict[str, Tensor]: A dictionary of loss components for outputs from
                 a single decoder layer.
         """
+        # matching for one2one branch
         num_imgs = cls_scores.size(0)
         cls_scores_list = [cls_scores[i] for i in range(num_imgs)]
         bbox_preds_list = [bbox_preds[i] for i in range(num_imgs)]
+        if one2many_cls_scores != None:
+            num_imgs_one2many = one2many_cls_scores.size(0)
+            one2many_cls_scores_list = [
+                one2many_cls_scores[i] for i in range(num_imgs_one2many)
+            ]
+            one2many_bbox_preds_list = [
+                one2many_bbox_preds[i] for i in range(num_imgs_one2many)
+            ]
+        else:
+            one2many_cls_scores_list = [None for i in range(num_imgs)]
+            one2many_bbox_preds_list = [None for i in range(num_imgs)]
         cls_reg_targets = self.get_targets(
             cls_scores_list,
             bbox_preds_list,
@@ -408,6 +424,8 @@ class DETRHead(AnchorFreeHead):
             gt_labels_list,
             img_metas,
             gt_bboxes_ignore_list,
+            one2many_cls_scores_list=one2many_cls_scores_list,
+            one2many_bbox_preds_list=one2many_bbox_preds_list,
         )
         (
             labels_list,
@@ -416,7 +434,53 @@ class DETRHead(AnchorFreeHead):
             bbox_weights_list,
             num_total_pos,
             num_total_neg,
+            cost_matrix,
         ) = cls_reg_targets
+
+        if one2many_cls_scores != None:
+            # matching for one2many branch
+            one2one_queries_num = cls_scores_list[0].shape[0]
+            for idx in range(len(cost_matrix)):
+                cost_matrix[idx] = cost_matrix[idx][one2one_queries_num:, :].repeat(
+                    1, self.k_one2many
+                )
+            cls_reg_targets_one2many = self.get_targets(
+                one2many_cls_scores_list,
+                one2many_bbox_preds_list,
+                one2many_gt_bboxes_list,
+                one2many_gt_labels_list,
+                img_metas,
+                one2many_gt_bboxes_ignore_list,
+                cost_matrix=cost_matrix,
+            )
+            (
+                labels_list_one2many,
+                label_weights_list_one2many,
+                bbox_targets_list_one2many,
+                bbox_weights_list_one2many,
+                num_total_pos_one2many,
+                num_total_neg_one2many,
+                cost_matrix_one2many,
+            ) = cls_reg_targets_one2many
+            # concante the one2one and one2many branch
+            for batch in range(num_imgs):
+                labels_list[batch] = torch.cat(
+                    [labels_list[batch], labels_list_one2many[batch]]
+                )
+                label_weights_list[batch] = torch.cat(
+                    [label_weights_list[batch], label_weights_list_one2many[batch]]
+                )
+                bbox_targets_list[batch] = torch.cat(
+                    [bbox_targets_list[batch], bbox_targets_list_one2many[batch]]
+                )
+                bbox_weights_list[batch] = torch.cat(
+                    [bbox_weights_list[batch], bbox_weights_list_one2many[batch]]
+                )
+            cls_scores = torch.cat([cls_scores, one2many_cls_scores], dim=1)
+            bbox_preds = torch.cat([bbox_preds, one2many_bbox_preds], dim=1)
+            num_total_pos += num_total_pos_one2many
+            num_total_neg += num_total_neg_one2many
+
         labels = torch.cat(labels_list, 0)
         label_weights = torch.cat(label_weights_list, 0)
         bbox_targets = torch.cat(bbox_targets_list, 0)
@@ -477,6 +541,9 @@ class DETRHead(AnchorFreeHead):
         gt_labels_list,
         img_metas,
         gt_bboxes_ignore_list=None,
+        cost_matrix=None,
+        one2many_cls_scores_list=None,
+        one2many_bbox_preds_list=None,
     ):
         """"Compute regression and classification targets for a batch image.
 
@@ -518,6 +585,12 @@ class DETRHead(AnchorFreeHead):
         num_imgs = len(cls_scores_list)
         gt_bboxes_ignore_list = [gt_bboxes_ignore_list for _ in range(num_imgs)]
 
+        if cost_matrix == None:
+            cost_matrix = [None for _ in range(len(cls_scores_list))]
+        if one2many_cls_scores_list == None:
+            one2many_cls_scores_list = [None for _ in range(len(cls_scores_list))]
+        if one2many_bbox_preds_list == None:
+            one2many_bbox_preds_list = [None for _ in range(len(cls_scores_list))]
         (
             labels_list,
             label_weights_list,
@@ -525,6 +598,7 @@ class DETRHead(AnchorFreeHead):
             bbox_weights_list,
             pos_inds_list,
             neg_inds_list,
+            cost_matrix,
         ) = multi_apply(
             self._get_target_single,
             cls_scores_list,
@@ -533,6 +607,9 @@ class DETRHead(AnchorFreeHead):
             gt_labels_list,
             img_metas,
             gt_bboxes_ignore_list,
+            cost_matrix,
+            one2many_cls_scores_list,
+            one2many_bbox_preds_list,
         )
         num_total_pos = sum((inds.numel() for inds in pos_inds_list))
         num_total_neg = sum((inds.numel() for inds in neg_inds_list))
@@ -543,6 +620,7 @@ class DETRHead(AnchorFreeHead):
             bbox_weights_list,
             num_total_pos,
             num_total_neg,
+            cost_matrix,
         )
 
     def _get_target_single(
@@ -553,8 +631,11 @@ class DETRHead(AnchorFreeHead):
         gt_labels,
         img_meta,
         gt_bboxes_ignore=None,
+        cost_matrix=None,
+        one2many_cls_scores_list=None,
+        one2many_bbox_preds_list=None,
     ):
-        """"Compute regression and classification targets for one image.
+        """ "Compute regression and classification targets for one image.
 
         Outputs from a single decoder layer of a single feature level are used.
 
@@ -584,10 +665,36 @@ class DETRHead(AnchorFreeHead):
         """
 
         num_bboxes = bbox_pred.size(0)
+
         # assigner and sampler
-        assign_result = self.assigner.assign(
-            bbox_pred, cls_score, gt_bboxes, gt_labels, img_meta, gt_bboxes_ignore
-        )
+        if cost_matrix == None:
+            if one2many_bbox_preds_list != None:
+                bbox_pred_matching = torch.cat([bbox_pred, one2many_bbox_preds_list])
+                cls_score_mathing = torch.cat([cls_score, one2many_cls_scores_list])
+            else:
+                bbox_pred_matching = bbox_pred
+                cls_score_mathing = cls_score
+            assign_result, cost_matrix = self.assigner.assign(
+                bbox_pred_matching,
+                cls_score_mathing,
+                gt_bboxes,
+                gt_labels,
+                img_meta,
+                gt_bboxes_ignore,
+                one2one_queries_num=bbox_pred.shape[0],
+            )
+        else:
+            bbox_pred_matching = bbox_pred
+            cls_score_mathing = cls_score
+            assign_result, cost_matrix = self.assigner.assign(
+                bbox_pred_matching,
+                cls_score_mathing,
+                gt_bboxes,
+                gt_labels,
+                img_meta,
+                gt_bboxes_ignore,
+                cost_matrix=cost_matrix,
+            )
         sampling_result = self.sampler.sample(assign_result, bbox_pred, gt_bboxes)
         pos_inds = sampling_result.pos_inds
         neg_inds = sampling_result.neg_inds
@@ -610,7 +717,15 @@ class DETRHead(AnchorFreeHead):
         pos_gt_bboxes_normalized = sampling_result.pos_gt_bboxes / factor
         pos_gt_bboxes_targets = bbox_xyxy_to_cxcywh(pos_gt_bboxes_normalized)
         bbox_targets[pos_inds] = pos_gt_bboxes_targets
-        return (labels, label_weights, bbox_targets, bbox_weights, pos_inds, neg_inds)
+        return (
+            labels,
+            label_weights,
+            bbox_targets,
+            bbox_weights,
+            pos_inds,
+            neg_inds,
+            cost_matrix,
+        )
 
     # over-write because img_metas are needed as inputs for bbox_head.
     def forward_train(
@@ -799,7 +914,7 @@ class DETRHead(AnchorFreeHead):
         return multi_apply(self.forward_single_onnx, feats, img_metas_list)
 
     def forward_single_onnx(self, x, img_metas):
-        """"Forward function for a single feature level with ONNX exportation.
+        """ "Forward function for a single feature level with ONNX exportation.
 
         Args:
             x (Tensor): Input feature from backbone's single stage, shape

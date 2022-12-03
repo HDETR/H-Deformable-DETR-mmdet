@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from torch import nn, Tensor
 from torch.nn.init import xavier_uniform_, constant_, uniform_, normal_
 
-from Projects.checkpointing_plugin.models.utils.ops.modules import MSDeformAttn
+from projects.checkpointing_plugin.models.utils.ops.modules import MSDeformAttn
 import torch.utils.checkpoint as checkpoint
 
 def inverse_sigmoid(x, eps=1e-5):

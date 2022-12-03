@@ -12,7 +12,8 @@ from mmdet.models.utils.transformer import inverse_sigmoid
 from mmdet.models.builder import HEADS
 from .detr_head import DETRHead
 
-@HEADS.register_module(name='HybridBranchDeformableDETRHead', force=True)
+
+@HEADS.register_module(name="HybridBranchDeformableDETRHead", force=True)
 class HybridBranchDeformableDETRHead(DETRHead):
     """Head of DeformDETR: Deformable DETR: Deformable Transformers for End-to-
     End Object Detection.
@@ -157,7 +158,14 @@ class HybridBranchDeformableDETRHead(DETRHead):
 
         # attn mask
         self_attn_mask = (
-            torch.zeros([self.num_query, self.num_query,]).bool().to(feat.device)
+            torch.zeros(
+                [
+                    self.num_query,
+                    self.num_query,
+                ]
+            )
+            .bool()
+            .to(feat.device)
         )
         self_attn_mask[self.num_query_one2one :, 0 : self.num_query_one2one] = True
         self_attn_mask[0 : self.num_query_one2one, self.num_query_one2one :] = True
@@ -250,7 +258,7 @@ class HybridBranchDeformableDETRHead(DETRHead):
         img_metas,
         gt_bboxes_ignore=None,
     ):
-        """"Loss function.
+        """ "Loss function.
 
         Args:
             one2one_cls_scores (Tensor): One-to-one branch classification score of all
@@ -299,16 +307,6 @@ class HybridBranchDeformableDETRHead(DETRHead):
         one2one_gt_bboxes_ignore_list = [
             gt_bboxes_ignore for _ in range(num_dec_layers)
         ]
-        # one2one losses
-        losses_cls, losses_bbox, losses_iou = multi_apply(
-            self.loss_single,
-            one2one_cls_scores,
-            one2one_bbox_preds,
-            one2one_gt_bboxes_list,
-            one2one_gt_labels_list,
-            img_metas_list,
-            one2one_gt_bboxes_ignore_list,
-        )
 
         # for one2many branch
         one2many_gt_bboxes_list = []
@@ -327,16 +325,25 @@ class HybridBranchDeformableDETRHead(DETRHead):
         ]
         one2many_gt_bboxes_ignore_list = one2one_gt_bboxes_ignore_list
 
-        # one2many losses
-        losses_cls_one2many, losses_bbox_one2many, losses_iou_one2many = multi_apply(
+        # one2one and one2many losses
+        losses_cls, losses_bbox, losses_iou = multi_apply(
             self.loss_single,
+            one2one_cls_scores,
+            one2one_bbox_preds,
+            one2one_gt_bboxes_list,
+            one2one_gt_labels_list,
+            img_metas_list,
+            one2one_gt_bboxes_ignore_list,
             one2many_cls_scores,
             one2many_bbox_preds,
             one2many_gt_bboxes_list,
             one2many_gt_labels_list,
-            img_metas_list,
             one2many_gt_bboxes_ignore_list,
         )
+
+        # losses_cls:about 2.2 for every layer
+        # losses_bbox:about 2.2 for every layer
+        # losses_iou:about 1.6 for every layer
 
         # sum up losses for two branches
         loss_dict = dict()
@@ -358,31 +365,19 @@ class HybridBranchDeformableDETRHead(DETRHead):
             loss_dict["enc_loss_iou"] = enc_losses_iou
 
         # loss from the last decoder layer
-        loss_dict["loss_cls"] = losses_cls[-1] + losses_cls_one2many[-1]
-        loss_dict["loss_bbox"] = losses_bbox[-1] + losses_bbox_one2many[-1]
-        loss_dict["loss_iou"] = losses_iou[-1] + losses_iou_one2many[-1]
+        loss_dict["loss_cls"] = losses_cls[-1]
+        loss_dict["loss_bbox"] = losses_bbox[-1]
+        loss_dict["loss_iou"] = losses_iou[-1]
         # loss from other decoder layers
         num_dec_layer = 0
-        for (
-            loss_cls_i,
-            loss_bbox_i,
-            loss_iou_i,
-            loss_cls_i_one2many,
-            loss_bbox_i_one2many,
-            loss_iou_i_one2many,
-        ) in zip(
+        for (loss_cls_i, loss_bbox_i, loss_iou_i,) in zip(
             losses_cls[:-1],
             losses_bbox[:-1],
             losses_iou[:-1],
-            losses_cls_one2many[:-1],
-            losses_bbox_one2many[:-1],
-            losses_iou_one2many[:-1],
         ):
-            loss_dict[f"d{num_dec_layer}.loss_cls"] = loss_cls_i + loss_cls_i_one2many
-            loss_dict[f"d{num_dec_layer}.loss_bbox"] = (
-                loss_bbox_i + loss_bbox_i_one2many
-            )
-            loss_dict[f"d{num_dec_layer}.loss_iou"] = loss_iou_i + loss_iou_i_one2many
+            loss_dict[f"d{num_dec_layer}.loss_cls"] = loss_cls_i
+            loss_dict[f"d{num_dec_layer}.loss_bbox"] = loss_bbox_i
+            loss_dict[f"d{num_dec_layer}.loss_iou"] = loss_iou_i
             num_dec_layer += 1
         return loss_dict
 
