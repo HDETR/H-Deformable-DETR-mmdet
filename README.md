@@ -167,6 +167,13 @@ mim install mmcv-full
 pip install -e .
 ```
 
+4. Install the ops
+```sh
+cd projects/checkpointing_plugin/models/utils/ops
+bash make.sh
+cd ../../../../..
+```
+
 ## Data
 
 Please download [COCO 2017](https://cocodataset.org/) dataset and organize them as following:

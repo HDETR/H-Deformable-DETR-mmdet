@@ -1,8 +1,8 @@
 _base_ = ["../_base_/datasets/coco_detection.py", "../_base_/default_runtime.py"]
 
 
-plugin=True
-plugin_dir='projects/hdetr_plugin/'
+plugin = True
+plugin_dir = "projects/hdetr_plugin/"
 
 
 checkpoint_config = dict(create_symlink=False)
@@ -95,18 +95,18 @@ model = dict(
             type="SinePositionalEncoding", num_feats=128, normalize=True, offset=-0.5
         ),
         loss_cls=dict(
-            type="FocalLoss", use_sigmoid=True, gamma=2.0, alpha=0.25, loss_weight=2.0
+            type="FocalLoss", use_sigmoid=True, gamma=2.0, alpha=0.25, loss_weight=4.0
         ),
-        loss_bbox=dict(type="L1Loss", loss_weight=5.0),
-        loss_iou=dict(type="GIoULoss", loss_weight=2.0),
+        loss_bbox=dict(type="L1Loss", loss_weight=10.0),
+        loss_iou=dict(type="GIoULoss", loss_weight=4.0),
     ),
     # training and testing settings
     train_cfg=dict(
         assigner=dict(
             type="HungarianAssigner",
-            cls_cost=dict(type="FocalLossCost", weight=2.0),
-            reg_cost=dict(type="BBoxL1Cost", weight=5.0, box_format="xywh"),
-            iou_cost=dict(type="IoUCost", iou_mode="giou", weight=2.0),
+            cls_cost=dict(type="FocalLossCost", weight=4.0),
+            reg_cost=dict(type="BBoxL1Cost", weight=10.0, box_format="xywh"),
+            iou_cost=dict(type="IoUCost", iou_mode="giou", weight=4.0),
         )
     ),
     test_cfg=dict(max_per_img=100),
